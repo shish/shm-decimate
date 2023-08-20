@@ -59,18 +59,27 @@ fn disk_free_percent(path: &String) -> Result<f64> {
 }
 
 fn decimate(path: &String, delete: bool) -> Result<()> {
-    let mut files = Vec::new();
+    debug!("Walking {:?}", path);
+    let mut entries = Vec::new();
     for entry in WalkDir::new(&path) {
         let entry = entry?;
         if entry.file_type().is_file() {
-            let atime = entry
-                .metadata()?
-                .accessed()?
-                .duration_since(SystemTime::UNIX_EPOCH)?
-                .as_secs();
-            files.push((atime, entry.into_path()));
+            entries.push(entry);
         }
     }
+
+    debug!("Getting last access times");
+    let mut files = Vec::new();
+    for entry in entries.into_iter().progress() {
+        let atime = entry
+            .metadata()?
+            .accessed()?
+            .duration_since(SystemTime::UNIX_EPOCH)?
+            .as_secs();
+        files.push((atime, entry.into_path()));
+    }
+
+    debug!("Sorting files by last access time");
     files.sort_unstable();
 
     let ten_percent = files.len() / 10;
